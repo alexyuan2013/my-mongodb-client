@@ -62,6 +62,9 @@ MyMongoClient.prototype.findWithCursor = function(coll, queryObj, page, orderObj
             result.per_page = perPage
             result.page = curPage
             result.data = []
+            if (result.count === 0) {
+              resolve(result)
+            }
             var i = 0
             cursor.sort(orderObj).forEach(function(item){
               if (start > result.count) { //起始点大于数据条数，直接返回
@@ -129,6 +132,26 @@ MyMongoClient.prototype.deleteOne = function (coll, selector, options) {
         var collection = db.collection(coll)
         collection.deleteOne(selector, options).then(function(res){
           db.close()
+          resolve(res)
+        }, function(err){
+          reject(err)
+        })
+      }
+    })
+  })
+}
+/**
+ * insert multiple docs
+ */
+MyMongoClient.prototype.insertMany = function (coll, array, options) {
+  var url = this.mongoUrl
+  return new Promise(function(resolve, reject){
+    Client.connect(url, function(err, db){
+      if (err) {
+        reject(err)
+      } else {
+        var collection = db.collection(coll)
+        collection.insertMany(array, options).then(function(res){
           resolve(res)
         }, function(err){
           reject(err)
