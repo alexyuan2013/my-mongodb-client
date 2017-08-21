@@ -11,6 +11,11 @@ const Promise = require('promise')
  */
 function MyMongoClient(url) {
   this.mongoUrl = url
+  var that = this
+  Client.connect(url, function(err, database){
+    if (err) throw err
+    that.db = database
+  })
 }
 /**
  * query document
@@ -18,20 +23,14 @@ function MyMongoClient(url) {
  */
 MyMongoClient.prototype.find = function (coll, queryObj) {
   var url = this.mongoUrl
+  var db = this.db
   return new Promise(function(resolve, reject){
-    Client.connect(url, function(err, db){
-      if (err) {
+    var collection = db.collection(coll)
+    collection.find(queryObj).toArray(function(err, docs){
+      if(err){
         reject(err)
       } else {
-        var collection = db.collection(coll)
-        collection.find(queryObj).toArray(function(err, docs){
-          if(err){
-            reject(err)
-          } else {
-            db.close()
-            resolve(docs)
-          }
-        })
+        resolve(docs)
       }
     })
   })
@@ -40,57 +39,49 @@ MyMongoClient.prototype.find = function (coll, queryObj) {
  * query document with cursor
  * return total num & first 100 docs
  */
-MyMongoClient.prototype.findWithCursor = function(coll, queryObj, page, orderObj) {
+MyMongoClient.prototype.findWithCursor = function(coll, queryObj, page, perPage, orderObj) {
   var url = this.mongoUrl
+  var db = this.db
   var result = {}
   var curPage = page || 1
   curPage = curPage > 0 ? curPage : 1
-  var perPage = 100
   var start = perPage * (curPage - 1)
   return new Promise(function(resolve, reject){
-    Client.connect(url, function(err, db){
-      if(err) {
+    var collection = db.collection(coll)
+    var cursor = collection.find(queryObj)
+    cursor.count(function(err, count){
+      if (err) {
         reject(err)
       } else {
-        var collection = db.collection(coll)
-        var cursor = collection.find(queryObj)
-        cursor.count(function(err, count){
+        result.count = count
+        result.per_page = perPage
+        result.page = curPage
+        result.data = []
+        if (result.count === 0) {
+          resolve(result)
+        }
+        var i = 0
+        cursor.sort(orderObj).forEach(function(item){
+          if (start > result.count) { //起始点大于数据条数，直接返回
+            cursor.close(function(err, result) {
+            })
+            resolve(result)
+          } else {
+            if (i < start) { //起点从0开始，移动游标
+              i++
+            } else if (i < start + perPage && i < result.count){
+              result.data.push(item)
+              i++
+            }
+          }
+          if (i == start+perPage || i == result.count){
+            cursor.close(function(err, result) {
+            })
+            resolve(result)
+          }
+        }, function(err){
           if (err) {
             reject(err)
-          } else {
-            result.count = count
-            result.per_page = perPage
-            result.page = curPage
-            result.data = []
-            if (result.count === 0) {
-              resolve(result)
-            }
-            var i = 0
-            cursor.sort(orderObj).forEach(function(item){
-              if (start > result.count) { //起始点大于数据条数，直接返回
-                cursor.close(function(err, result) {
-                  db.close();
-                })
-                resolve(result)
-              } else {
-                if (i < start) { //起点从0开始，移动游标
-                  i++
-                } else if (i < start + perPage && i < result.count){
-                  result.data.push(item)
-                  i++
-                }
-              }
-              if (i == start+perPage || i == result.count){
-                cursor.close(function(err, result) {
-                  db.close();
-                })
-                resolve(result)
-              }
-            }, function(err){
-              if (err) {
-                reject(err)
-              }
-            })
           }
         })
       }
@@ -103,19 +94,13 @@ MyMongoClient.prototype.findWithCursor = function(coll, queryObj, page, orderObj
  */
 MyMongoClient.prototype.updateOne = function (coll, selector, document, options) {
   var url = this.mongoUrl
+  var db = this.db
   return new Promise(function(resolve, reject){
-    Client.connect(url, function(err, db){
-      if (err) {
-        reject(err)
-      } else {
-        var collection = db.collection(coll)
-        collection.updateOne(selector, document, options).then(function(res){
-          db.close()
-          resolve(res)
-        }, function(err){
-          reject(err)
-        })
-      }
+    var collection = db.collection(coll)
+    collection.updateOne(selector, document, options).then(function(res){
+      resolve(res)
+    }, function(err){
+      reject(err)
     })
   })
 }
@@ -124,19 +109,13 @@ MyMongoClient.prototype.updateOne = function (coll, selector, document, options)
  */
 MyMongoClient.prototype.deleteOne = function (coll, selector, options) {
   var url = this.mongoUrl
+  var db = this.db
   return new Promise(function(resolve, reject){
-    Client.connect(url, function(err, db){
-      if (err) {
-        reject(err)
-      } else {
-        var collection = db.collection(coll)
-        collection.deleteOne(selector, options).then(function(res){
-          db.close()
-          resolve(res)
-        }, function(err){
-          reject(err)
-        })
-      }
+    var collection = db.collection(coll)
+    collection.deleteOne(selector, options).then(function(res){
+      resolve(res)
+    }, function(err){
+      reject(err)
     })
   })
 }
@@ -145,18 +124,13 @@ MyMongoClient.prototype.deleteOne = function (coll, selector, options) {
  */
 MyMongoClient.prototype.insertMany = function (coll, array, options) {
   var url = this.mongoUrl
+  var db = this.db
   return new Promise(function(resolve, reject){
-    Client.connect(url, function(err, db){
-      if (err) {
-        reject(err)
-      } else {
-        var collection = db.collection(coll)
-        collection.insertMany(array, options).then(function(res){
-          resolve(res)
-        }, function(err){
-          reject(err)
-        })
-      }
+    var collection = db.collection(coll)
+    collection.insertMany(array, options).then(function(res){
+      resolve(res)
+    }, function(err){
+      reject(err)
     })
   })
 }
