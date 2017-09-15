@@ -134,6 +134,11 @@ MyMongoClient.prototype.insertMany = function (coll, array, options) {
     })
   })
 }
+
+MyMongoClient.prototype.close = function() {
+  var db = this.db
+  return db.close(true)
+}
 module.exports = MyMongoClient
 
 
