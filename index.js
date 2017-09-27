@@ -1,5 +1,5 @@
 var MyMongoClient = require('./my-mongodb-client')
-var myClient = new MyMongoClient('mongodb://127.0.0.1:27017/geo')
+var myClient = new MyMongoClient('mongodb://admin:admin@127.0.0.1:27017/geo')
 var ObjectID = require('mongodb').ObjectID
 var MongoClient = require('mongodb').MongoClient
 /*
@@ -106,6 +106,8 @@ setTimeout(function() {
     }, function(err){
       console.log(err)
     })
+  },function(error){
+    console.log(error)
   })
 }, 1000);
 
